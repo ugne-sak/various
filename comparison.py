@@ -13,9 +13,9 @@ TAB_NAME = "Results"
 
 # Folders to include in the comparison (order is preserved)
 EXPERIMENT_DIRS = [
-    Path("data/experiment_20260306_1545"),
-    Path("data/experiment_20260307_0912"),
-    Path("data/experiment_20260308_1422"),
+    Path("data/experiment_20260306_1545_n100_d300"),
+    Path("data/experiment_20260307_0912_n120_d350"),
+    Path("data/experiment_20260308_1422_n150_d400"),
 ]
 
 # Name of the CSV file inside each experiment folder
@@ -72,13 +72,25 @@ def experiment_tag(folder: Path) -> str:
     return match.group() if match else folder.name
 
 
-def load_experiments() -> dict[str, pd.DataFrame]:
-    experiments = {}
+def parse_experiment_meta(folder: Path) -> dict:
+    """Extract n (cases) and d (documents) from folder name, e.g. experiment_..._n100_d300."""
+    n = re.search(r"_n(\d+)", folder.name)
+    d = re.search(r"_d(\d+)", folder.name)
+    return {
+        "n_cases": int(n.group(1)) if n else None,
+        "n_docs":  int(d.group(1)) if d else None,
+    }
+
+
+def load_experiments() -> tuple[dict[str, pd.DataFrame], dict[str, dict]]:
+    dfs, meta = {}, {}
     for folder in EXPERIMENT_DIRS:
+        tag = experiment_tag(folder)
         df = pd.read_csv(folder / RESULTS_FILE)
         df = df.drop(columns=[c for c in df.columns if "Unnamed" in c])
-        experiments[experiment_tag(folder)] = df
-    return experiments
+        dfs[tag] = df
+        meta[tag] = parse_experiment_meta(folder)
+    return dfs, meta
 
 
 def _infer_count_cols(experiments: dict[str, pd.DataFrame]) -> list[str]:
@@ -88,7 +100,7 @@ def _infer_count_cols(experiments: dict[str, pd.DataFrame]) -> list[str]:
     ))
 
 
-def summary_cards(experiments: dict[str, pd.DataFrame]) -> str:
+def summary_cards(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -> str:
     tags = list(experiments.keys())
     summary_data = {
         tag: {m: round(df[m].mean(), 2) for m in METRIC_COLS}
@@ -184,7 +196,7 @@ render();
 """
 
 
-def heatmap(experiments: dict[str, pd.DataFrame]) -> str:
+def heatmap(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -> str:
     tags = list(experiments.keys())
     count_cols = _infer_count_cols(experiments)
 
@@ -219,6 +231,7 @@ def heatmap(experiments: dict[str, pd.DataFrame]) -> str:
     count_cols_json  = json.dumps(count_cols)
     field_col_json   = json.dumps(FIELD_COL)
     metric_desc_json = json.dumps(METRIC_DESCRIPTIONS)
+    meta_json        = json.dumps(meta)
 
     hmap_sel   = _field_selector("h", "setHmapFields",   "hmap-dropdown")
     detail_sel = _field_selector("d", "setDetailFields", "detail-dropdown")
@@ -249,9 +262,12 @@ def heatmap(experiments: dict[str, pd.DataFrame]) -> str:
 <!-- Detail table -->
 <div id="detail-panel" style="display:none">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-    <div>
-      <span style="font-size:11px;color:#999;letter-spacing:1px">EXPERIMENT&nbsp;</span>
-      <span id="detail-tag" style="color:#1976d2;font-family:monospace;font-weight:700;font-size:13px"></span>
+    <div style="display:flex;align-items:baseline;gap:16px">
+      <div>
+        <span style="font-size:11px;color:#999;letter-spacing:1px">EXPERIMENT&nbsp;</span>
+        <span id="detail-tag" style="color:#1976d2;font-family:monospace;font-weight:700;font-size:13px"></span>
+      </div>
+      <span id="detail-meta" style="font-size:11px;color:#aaa"></span>
     </div>
     <button onclick="closeDetail()" style="padding:4px 10px;border-radius:4px;border:1px solid #ddd;background:#fff;color:#999;cursor:pointer;font-size:12px">✕ close details</button>
   </div>
@@ -281,6 +297,7 @@ const top8   = {top8_json};
 const tags   = {tags_json};
 const data   = {metric_data_json};
 const counts = {counts_json};
+const meta   = {meta_json};
 
 let expandedTag = null;
 let currentMetric = metricCols[0];
@@ -454,6 +471,13 @@ function renderDetailBody(tag) {{
 
 function renderDetail(tag) {{
   document.getElementById("detail-tag").textContent = tag;
+  const m = meta[tag] || {{}};
+  const badge = (label, val) => val == null ? "" :
+    `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:12px;background:#e8f0fe;border:1px solid #c5d4f5">
+      <span style="font-size:10px;color:#5c7cdb;letter-spacing:0.5px">${{label}}</span>
+      <span style="font-size:13px;font-weight:700;color:#1a56c4">${{val}}</span>
+    </span>`;
+  document.getElementById("detail-meta").innerHTML = badge("cases:", m.n_cases) + " " + badge("docs:", m.n_docs);
   document.getElementById("detail-dropdown").style.display = "none";
   detailCustomFields = new Set(top8.filter(f => fields.includes(f)));
   setFieldButtons("d", "main");
@@ -516,11 +540,11 @@ def update_mkdocs() -> None:
 
 
 def main():
-    experiments = load_experiments()
+    experiments, meta = load_experiments()
 
     content = "# Experiment Comparison\n\n"
-    content += summary_cards(experiments)
-    content += heatmap(experiments)
+    content += summary_cards(experiments, meta)
+    content += heatmap(experiments, meta)
 
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text(content)
