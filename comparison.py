@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +9,7 @@ import yaml
 DOCS_DIR = Path("docs/results")
 MKDOCS_YML = Path("mkdocs.yml")
 OUTPUT_PATH = DOCS_DIR / "comparison.md"
+TAB_NAME = "Results"
 
 # Folders to include in the comparison (order is preserved)
 EXPERIMENT_DIRS = [
@@ -40,14 +42,17 @@ TOP8_FIELDS = [
 
 
 def experiment_tag(folder: Path) -> str:
-    return folder.name.removeprefix("experiment_")
+    match = re.search(r"\d{8}_\d{4}", folder.name)
+    return match.group() if match else folder.name
 
 
 def load_experiments() -> dict[str, pd.DataFrame]:
-    return {
-        experiment_tag(folder): pd.read_csv(folder / RESULTS_FILE)
-        for folder in EXPERIMENT_DIRS
-    }
+    experiments = {}
+    for folder in EXPERIMENT_DIRS:
+        df = pd.read_csv(folder / RESULTS_FILE)
+        df = df.drop(columns=[c for c in df.columns if "Unnamed" in c])
+        experiments[experiment_tag(folder)] = df
+    return experiments
 
 
 def _infer_count_cols(experiments: dict[str, pd.DataFrame]) -> list[str]:
@@ -76,7 +81,6 @@ def summary_cards(experiments: dict[str, pd.DataFrame]) -> str:
         for tag, df in experiments.items()
     }
     summary_json = json.dumps(summary_data)
-    tags_json = json.dumps(tags)
     metric_cols_json = json.dumps(METRIC_COLS)
     default_1 = tags[-2]
     default_2 = tags[-1]
@@ -514,13 +518,13 @@ showMetric(metricCols[0]);
 
 def update_mkdocs() -> None:
     config = yaml.safe_load(MKDOCS_YML.read_text())
-    nav_entry = "results/comparison.md"
+    nav_entry = str(OUTPUT_PATH.relative_to("docs"))
 
     for section in config["nav"]:
-        if "Results" in section:
-            existing = [list(p.values())[0] for p in section["Results"]]
+        if TAB_NAME in section:
+            existing = [list(p.values())[0] for p in section[TAB_NAME]]
             if nav_entry not in existing:
-                section["Results"].insert(0, {"Comparison": nav_entry})
+                section[TAB_NAME].insert(0, {"Comparison": nav_entry})
             break
 
     MKDOCS_YML.write_text(
