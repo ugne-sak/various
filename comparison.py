@@ -9,6 +9,7 @@ import yaml
 DOCS_DIR = Path("docs/results")
 MKDOCS_YML = Path("mkdocs.yml")
 OUTPUT_PATH = DOCS_DIR / "comparison.md"
+NAV_ENTRY = "results/comparison.md"
 TAB_NAME = "Results"
 
 # Folders to include in the comparison (order is preserved)
@@ -524,7 +525,7 @@ showMetric(metricCols[0]);
 
 def update_mkdocs() -> None:
     config = yaml.safe_load(MKDOCS_YML.read_text())
-    nav_entry = str(OUTPUT_PATH.relative_to("docs"))
+    nav_entry = NAV_ENTRY
 
     for section in config["nav"]:
         if TAB_NAME in section:
