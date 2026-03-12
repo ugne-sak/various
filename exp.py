@@ -21,11 +21,12 @@ import yaml
 # ── User-configurable ─────────────────────────────────────────────────
 DATA_DIR = Path("data")
 DOCS_DIR = Path("docs/results")
+DOCS_NAV_DIR = "results"
 MKDOCS_YML = Path("mkdocs.yml")
 TAB_NAME = "Results"
 RESULTS_FILE = "extraction_results.csv"
-CM_FILE      = "cm.png"
-META_FILE    = "meta.json"
+CM_FILE = "cm.png"
+META_FILE = "meta.json"
 META_EXCLUDE = []  # keys from meta.json to hide in the output page
 # ─────────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,8 @@ def format_experiment_metadata(folder: Path) -> str:
     meta = json.loads(meta_path.read_text())[0]
     lines = "\n".join(
         f"- **{k}**: {v:,}" if isinstance(v, int) else f"- **{k}**: {v}"
-        for k, v in meta.items() if k not in META_EXCLUDE
+        for k, v in meta.items()
+        if k not in META_EXCLUDE
     )
     return f"## Experiment details\n\n{lines}\n\n"
 
@@ -82,7 +84,7 @@ def write_classification_md(folder: Path, tag: str) -> Path:
         f"# Experiment {tag} — Classification\n\n"
         f"{meta}"
         f"## Confusion Matrix\n\n"
-        f"![Confusion Matrix](experiment_{tag}_cm.png)\n"
+        f"[![Confusion Matrix](experiment_{tag}_cm.png)](experiment_{tag}_cm.png)\n"
     )
 
     md_path.parent.mkdir(parents=True, exist_ok=True)
@@ -137,10 +139,10 @@ def main():
 
     if "classification" in args.tag:
         md_path = write_classification_md(folder, tag)
-        update_mkdocs(tag, "Classification", f"results/{md_path.name}")
+        update_mkdocs(tag, "Classification", f"{DOCS_NAV_DIR}/{md_path.name}")
     elif "extraction" in args.tag:
         md_path = write_extraction_md(folder, tag)
-        update_mkdocs(tag, "Extraction", f"results/{md_path.name}")
+        update_mkdocs(tag, "Extraction", f"{DOCS_NAV_DIR}/{md_path.name}")
     else:
         raise ValueError("Experiment tag must contain 'classification' or 'extraction'")
 
