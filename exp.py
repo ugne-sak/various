@@ -24,8 +24,9 @@ DOCS_DIR = Path("docs/results")
 MKDOCS_YML = Path("mkdocs.yml")
 TAB_NAME = "Results"
 RESULTS_FILE = "extraction_results.csv"
-CM_FILE = "cm.png"
-META_FILE = "meta.json"
+CM_FILE      = "cm.png"
+META_FILE    = "meta.json"
+META_EXCLUDE = []  # keys from meta.json to hide in the output page
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -37,14 +38,6 @@ def extract_tag(folder_name: str) -> str:
     return match.group() if match else folder_name
 
 
-def resolve_md_path(name: str) -> Path | None:
-    md_path = DOCS_DIR / name
-    if md_path.exists():
-        print(f"Already exists: {md_path}, skipping")
-        return None
-    return md_path
-
-
 # ── Writers ───────────────────────────────────────────────────────────
 
 
@@ -52,18 +45,16 @@ def format_experiment_metadata(folder: Path) -> str:
     meta_path = folder / META_FILE
     if not meta_path.exists():
         return ""
-    meta = json.loads(meta_path.read_text())
+    meta = json.loads(meta_path.read_text())[0]
     lines = "\n".join(
         f"- **{k}**: {v:,}" if isinstance(v, int) else f"- **{k}**: {v}"
-        for k, v in meta.items()
+        for k, v in meta.items() if k not in META_EXCLUDE
     )
     return f"## Experiment details\n\n{lines}\n\n"
 
 
 def write_extraction_md(folder: Path, tag: str) -> Path:
-    md_path = resolve_md_path(f"experiment_{tag}_extraction.md")
-    if md_path is None:
-        return DOCS_DIR / f"experiment_{tag}_extraction.md"
+    md_path = DOCS_DIR / f"experiment_{tag}_extraction.md"
 
     df = pd.read_csv(folder / RESULTS_FILE)
     df = df.drop(columns=[c for c in df.columns if "Unnamed" in c])
@@ -82,9 +73,7 @@ def write_extraction_md(folder: Path, tag: str) -> Path:
 
 
 def write_classification_md(folder: Path, tag: str) -> Path:
-    md_path = resolve_md_path(f"experiment_{tag}_classification.md")
-    if md_path is None:
-        return DOCS_DIR / f"experiment_{tag}_classification.md"
+    md_path = DOCS_DIR / f"experiment_{tag}_classification.md"
 
     meta = format_experiment_metadata(folder)
     img_dest = DOCS_DIR / f"experiment_{tag}_cm.png"
