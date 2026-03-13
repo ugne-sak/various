@@ -116,7 +116,7 @@ def _infer_count_cols(experiments: dict[str, pd.DataFrame]) -> list[str]:
     ))
 
 
-def summary_cards(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -> str:
+def summary_cards(experiments: dict[str, pd.DataFrame]) -> str:
     tags = list(experiments.keys())
     metric_cols_json = json.dumps(METRIC_COLS)
     defaults = [tags[1], tags[0]]
@@ -567,7 +567,7 @@ def main():
     experiments, meta = load_experiments()
 
     content = "# Experiment Comparison\n\n"
-    content += summary_cards(experiments, meta)
+    content += summary_cards(experiments)
     content += heatmap(experiments, meta)
 
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
