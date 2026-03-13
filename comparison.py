@@ -49,12 +49,13 @@ TOP8_FIELDS = [
 ]
 
 # ── Color thresholds: (min_value, text_color, bg_color, label) ────────
-# Use None for the fallback (last) entry
+# Add or remove entries freely. Keep them in descending order.
+# The entry with the lowest min_value acts as the fallback for anything below it.
 COLOR_THRESHOLDS = [
     (0.90, "#1b5e20", "#c8e6c9", "≥ 0.90"),
     (0.80, "#33691e", "#dcedc8", "≥ 0.80"),
     (0.60, "#f57f17", "#fff9c4", "≥ 0.60"),
-    (None, "#b71c1c", "#ffcdd2", "< 0.60"),
+    (0.00, "#b71c1c", "#ffcdd2", "< 0.60"),
 ]
 
 # ── Shared HTML fragments ────────────────────────────────────────────
@@ -117,13 +118,8 @@ def _infer_count_cols(experiments: dict[str, pd.DataFrame]) -> list[str]:
 
 def summary_cards(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -> str:
     tags = list(experiments.keys())
-    summary_data = {
-        tag: {m: round(df[m].mean(), 2) for m in METRIC_COLS}
-        for tag, df in experiments.items()
-    }
-    summary_json = json.dumps(summary_data)
     metric_cols_json = json.dumps(METRIC_COLS)
-    defaults = [tags[0], tags[1]]
+    defaults = [tags[1], tags[0]]
     options = "".join(f'<option value="{t}">{t}</option>' for t in tags)
 
     selectors = "\n".join(f"""
@@ -153,16 +149,25 @@ def summary_cards(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -
 </div>
 
 <script>
-const summaryData = {summary_json};
 const summaryMetricCols = {metric_cols_json};
 
 function colorFor(val) {{
+  if (val === null || val === 0) return ["#aaa", "transparent"];
   for (const [threshold, text, bg] of colorThresholds)
-    if (threshold === null || val >= threshold) return [text, bg];
+    if (val >= threshold) return [text, bg];
+}}
+
+function avgMetrics(tag) {{
+  const result = {{}};
+  summaryMetricCols.forEach(m => {{
+    const vals = hmapVisibleFields.map(f => data[m][tag][f]).filter(v => v !== null);
+    result[m] = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) / 100 : null;
+  }});
+  return result;
 }}
 
 function card(tag) {{
-  const d = summaryData[tag];
+  const d = avgMetrics(tag);
   const tiles = summaryMetricCols.map(m => {{
     const [text, bg] = colorFor(d[m]);
     return `<div style="flex:1;padding:10px;border-radius:4px;background:${{bg}};text-align:center">
@@ -194,7 +199,7 @@ function render() {{
   const t2 = document.getElementById("sel-2").value;
   document.getElementById("card-1").innerHTML = card(t1);
   document.getElementById("card-2").innerHTML = card(t2);
-  const d1 = summaryData[t1], d2 = summaryData[t2];
+  const d1 = avgMetrics(t1), d2 = avgMetrics(t2);
   const cards = summaryMetricCols.map(m => deltaCard(m, d1[m], d2[m])).join("");
   document.getElementById("diff-panel").innerHTML = `
     <div>
@@ -226,7 +231,7 @@ def heatmap(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -> str:
         for tag, df in experiments.items():
             rows = {row[FIELD_COL]: row for _, row in df.iterrows()}
             metric_data[metric][tag] = {
-                f: round(rows[f][metric], 2) if f in rows else None for f in fields
+                f: (None if pd.isna(v := rows[f][metric]) else round(v, 2)) if f in rows else None for f in fields
             }
 
     counts_data: dict = {}
@@ -406,11 +411,12 @@ function toggleField(f, customSet, setVisible, renderFn) {{
 
 function setHmapFields(mode) {{
   applyFieldMode("h", "hmap-dropdown", mode, hmapCustomFields, v => hmapVisibleFields = v, "toggleHmapField");
-  renderHeatmap();
+  renderHeatmap(); render();
 }}
 
 function toggleHmapField(f) {{
   toggleField(f, hmapCustomFields, v => hmapVisibleFields = v, renderHeatmap);
+  render();
 }}
 
 function setDetailFields(mode) {{
