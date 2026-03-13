@@ -168,7 +168,7 @@ function card(tag) {{
   const tiles = summaryMetricCols.map(m => {{
     const [text, bg] = colorFor(d[m]);
     return `<div style="flex:1;padding:10px;border-radius:4px;background:${{bg}};text-align:center">
-      <div style="font-size:10px;color:#777;margin-bottom:2px">${{m.toUpperCase()}}</div>
+      <div style="font-size:10px;color:#777;margin-bottom:2px">AVG ${{m.toUpperCase()}}</div>
       <div style="font-size:22px;font-weight:700;color:${{text}}">${{d[m].toFixed(2)}}</div>
     </div>`;
   }}).join("");
@@ -185,7 +185,7 @@ function deltaCard(m, v1, v2) {{
   const sign  = delta > 0 ? "+" : "";
   return `
     <div style="flex:1;padding:14px 18px;border-radius:8px;background:${{bg}};text-align:center">
-      <div style="font-size:10px;color:#aaa;letter-spacing:1px;margin-bottom:8px">${{m.toUpperCase()}}</div>
+      <div style="font-size:10px;color:#aaa;letter-spacing:1px;margin-bottom:8px">AVG ${{m.toUpperCase()}}</div>
       <div style="font-size:32px;font-weight:800;color:${{color}};line-height:1">${{sign}}${{delta.toFixed(2)}}</div>
       <div style="font-size:11px;color:#999;margin-top:8px">${{arrow}}&nbsp;${{v1.toFixed(2)}} → ${{v2.toFixed(2)}}</div>
     </div>`;
