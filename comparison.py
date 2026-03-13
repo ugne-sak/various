@@ -123,7 +123,7 @@ def summary_cards(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -
     }
     summary_json = json.dumps(summary_data)
     metric_cols_json = json.dumps(METRIC_COLS)
-    defaults = [tags[-2], tags[-1]]
+    defaults = [tags[0], tags[1]]
     options = "".join(f'<option value="{t}">{t}</option>' for t in tags)
 
     selectors = "\n".join(f"""
@@ -155,8 +155,6 @@ def summary_cards(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -
 <script>
 const summaryData = {summary_json};
 const summaryMetricCols = {metric_cols_json};
-
-{init_selectors}
 
 function colorFor(val) {{
   for (const [threshold, text, bg] of colorThresholds)
@@ -205,7 +203,11 @@ function render() {{
     </div>`;
 }}
 
-render();
+
+document.addEventListener("DOMContentLoaded", function() {{
+  {init_selectors}
+  render();
+}});
 </script>
 """
 
