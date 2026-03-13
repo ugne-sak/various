@@ -48,14 +48,28 @@ TOP8_FIELDS = [
     "property_type",
 ]
 
+# ── Color thresholds: (min_value, text_color, bg_color, label) ────────
+# Use None for the fallback (last) entry
+COLOR_THRESHOLDS = [
+    (0.90, "#1b5e20", "#c8e6c9", "≥ 0.90"),
+    (0.80, "#33691e", "#dcedc8", "≥ 0.80"),
+    (0.60, "#f57f17", "#fff9c4", "≥ 0.60"),
+    (None, "#b71c1c", "#ffcdd2", "< 0.60"),
+]
+
 # ── Shared HTML fragments ────────────────────────────────────────────
 _GREY_BOX = "background:#f7f7f7;border-radius:8px;padding:12px 16px 16px"
 
-_LEGEND = """<div style="display:flex;align-items:center;gap:12px;font-size:11px;color:#999">
-    <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;border-radius:2px;background:#c8e6c9;display:inline-block"></span> ≥ 0.90</span>
-    <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;border-radius:2px;background:#ffe0b2;display:inline-block"></span> ≥ 0.75</span>
-    <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;border-radius:2px;background:#ffcdd2;display:inline-block"></span> &lt; 0.75</span>
-  </div>"""
+_LEGEND = (
+    '<div style="display:flex;align-items:center;gap:12px;font-size:11px;color:#999">'
+    + "".join(
+        f'<span style="display:flex;align-items:center;gap:4px">'
+        f'<span style="width:11px;height:11px;border-radius:2px;background:{bg};display:inline-block"></span>'
+        f" {label}</span>"
+        for _, _, bg, label in COLOR_THRESHOLDS
+    )
+    + "</div>"
+)
 
 
 def _field_selector(btn_prefix: str, set_fn: str, dd_id: str) -> str:
@@ -145,9 +159,8 @@ const summaryMetricCols = {metric_cols_json};
 {init_selectors}
 
 function colorFor(val) {{
-  if (val >= 0.90) return ["#1b5e20", "#c8e6c9"];
-  if (val >= 0.75) return ["#e65100", "#ffe0b2"];
-  return ["#b71c1c", "#ffcdd2"];
+  for (const [threshold, text, bg] of colorThresholds)
+    if (threshold === null || val >= threshold) return [text, bg];
 }}
 
 function card(tag) {{
@@ -231,8 +244,9 @@ def heatmap(experiments: dict[str, pd.DataFrame], meta: dict[str, dict]) -> str:
     metric_cols_json = json.dumps(METRIC_COLS)
     count_cols_json  = json.dumps(count_cols)
     field_col_json   = json.dumps(FIELD_COL)
-    metric_desc_json = json.dumps(METRIC_DESCRIPTIONS)
-    meta_json        = json.dumps(meta)
+    metric_desc_json      = json.dumps(METRIC_DESCRIPTIONS)
+    meta_json             = json.dumps(meta)
+    color_thresholds_json = json.dumps([[t, tc, bg] for t, tc, bg, _ in COLOR_THRESHOLDS])
 
     hmap_sel   = _field_selector("h", "setHmapFields",   "hmap-dropdown")
     detail_sel = _field_selector("d", "setDetailFields", "detail-dropdown")
@@ -291,7 +305,8 @@ const fieldCol   = {field_col_json};
 const metricCols = {metric_cols_json};
 const countCols  = {count_cols_json};
 const detailCols = [fieldCol, ...countCols, ...metricCols];
-const metricDesc = {metric_desc_json};
+const metricDesc       = {metric_desc_json};
+const colorThresholds  = {color_thresholds_json};
 
 const fields = {fields_json};
 const top8   = {top8_json};
